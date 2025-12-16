@@ -10,7 +10,7 @@ local ltn12 = require "ltn12"
 local socket = require "cosock.socket"
 
 -- 🛠️ CONFIGURATION IP (Ton Pi)
-local PI_IP = "192.168.1.42"
+local PI_IP = "192.168.1.XX"
 local PI_PORT = 5000
 
 -- ⏱️ DELAI DE POLLING (EN SECONDES)
@@ -312,5 +312,6 @@ local netatmo_driver = Driver("netatmo_driver", {
     }
   }
 })
+
 
 netatmo_driver:run()
