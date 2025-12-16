@@ -95,18 +95,18 @@ curl -X POST https://api.netatmo.com/oauth2/token
 This Python script acts as a gateway. It must run continuously.
 
 1. Installing the files
-Create a folder (e.g., netatmo_bridge) and copy the contents of the /server folder from this repository into it.
+Create a folder (e.g., netatmo_service) and copy the contents of the /netatmo_service folder from this repository into it.
 
 2. Virtual Environment (Recommended)
 
-cd netatmo_bridge
+cd netatmo_service
 python3 -m venv venv
 source venv/bin/activate
 pip install -r requirements.txt
 3. Key Configuration
 Rename the .env.example file to .env:
 
-mv .env.example .env
+mv .env.exemple .env
 nano .env
 Fill in the following fields with the information retrieved in step 1:
 
