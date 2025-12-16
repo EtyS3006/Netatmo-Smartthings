@@ -41,15 +41,11 @@ Client ID
 
 Client Secret
 
-Token Generation (Easy Method):
-
-In the "Token Generator" section (at the bottom of your app's page).
+Token Generation:
 
 Select the scopes: read_thermostat, write_thermostat.
 
-Obtain the Refresh Token (key step 🔑)
-
-Netatmo uses OAuth2.
+To obtain the Refresh Token (key step 🔑); Netatmo uses OAuth2.
 
 The refresh token allows your server to function without user interaction.
 
@@ -106,7 +102,7 @@ pip install -r requirements.txt
 3. Key Configuration
 Rename the .env.example file to .env:
 
-mv .env.exemple .env
+mv .env.example .env
 nano .env
 Fill in the following fields with the information retrieved in step 1:
 
@@ -185,11 +181,12 @@ Select the channel you just created.
 C. Package the Driver
 This compiles the code and prepares the driver.
 
-smartthings edge:drivers:package .
+smartthings edge:drivers:package
 Note the Driver ID that is displayed (e.g., aafd...).
 
 D. Assign the Driver to the Channel
 We put the package in the delivery truck:
+smartthings edge:channels:assign
 
 E. Install the Driver on the Hub
 The package is delivered:
