@@ -139,6 +139,24 @@ sudo systemctl start netatmo.service
 📱 Step 3: Installing the SmartThings Driver
 This is the software that installs on your SmartThings Hub. To install it, we need to create a private "Distribution Channel".
 
+Account Login
+Open your terminal (Command Prompt or PowerShell) and type:
+
+smartthings login
+The terminal will ask you to open a web page (or will open one automatically).
+
+Log in with your Samsung account (the one used on your mobile app).
+
+Click "Authorize".
+
+Once the message "You can close this window" appears, return to your terminal.
+
+3. Verification
+To ensure the connection is established, type:
+
+smartthings devices
+If you see a list of your current devices (even empty), congratulations! You are logged in and ready to install the driver.
+
 1. IP Configuration
 Open the file driver/src/init.lua. Modify the following line with your Raspberry Pi's IP address:
 
