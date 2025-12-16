@@ -1,226 +1,180 @@
-# Netatmo-Smartthings
-Allow the user to control their Netatmo thermostat on SmartThings with a customizable refresh rate (5 minutes for example), more suitable control of modes (away, frost protection), and visibility on the connection status.
+🌉 Netatmo-SmartThings Bridge (Local Polling)
+Allow the user to control their Netatmo thermostat on SmartThings with a customizable refresh rate (e.g., 5 minutes), enhanced mode control (Schedule, Away, Frost Guard), and visibility on the connection status.
 
-SmartThings Netatmo Bridge
-This project allows you to control Netatmo valves and thermostats within SmartThings with a fast refresh rate (5 minutes) and a reliable local connection, replacing the official integration (slow and unstable).
+This project replaces the official cloud integration (slow and unstable) with a reliable local connection.
 
 🎯 Objectives
-Speed: Updates every 5 minutes (vs. 6 hours for the official integration).
+🚀 Speed: Updates every 5 minutes (vs. 6 hours for the official integration).
 
-Reliability: Local architecture (LAN) with automatic monitoring (Watchdog).
+🛡️ Reliability: Local architecture (LAN) with automatic monitoring (Watchdog).
 
-Features: Full support for modes (Scheduled, Away, Frost Protection) and setpoint adjustment.
+🌡️ Features: Full support for modes (Schedule, Away, Frost Guard) and setpoint adjustment.
 
-Monitoring: Visual indicators of connection status (Hub ↔ Pi ↔ Netatmo).
+❤️ Monitoring: Visual indicators of connection status (Hub ↔ Pi ↔ Netatmo).
 
 🛠️ Hardware Requirements
 A SmartThings Hub.
 
-A server that is always on (Raspberry Pi, Synology NAS with Docker, or an older Linux/Windows PC).
+A server that runs 24/7 (Raspberry Pi, Synology NAS with Docker, or an older Linux/Windows PC).
 
 Python 3.x installed on this server.
 
-📝 Step 1: Netatmo Configuration (API)
-We need to create a "dummy" application to obtain access rights.
+📝 Step 1: Netatmo API Configuration
+We need to create a personal application to obtain access rights.
 
 Log in to dev.netatmo.com with your usual Netatmo account.
 
 Go to "My Apps" > "Create an App".
 
-Name: SmartThings Bridge (or other).
+Name: SmartThings Bridge (or any name you prefer).
 
-Description: Custom Integration.
+Description: Personal Integration.
 
-Redirect URI: http://localhost (Important, even if we don't use it).
+Redirect URI: http://localhost (Important, even if we won't use it).
 
-Confirm.
+Save.
 
-In the settings of the created application, carefully copy:
+In your new app settings, copy and save:
 
 Client ID
 
 Client Secret
 
-Token Generation:
+Token Generation (The Easy Way):
 
-Select the scopes: read_thermostat, write_thermostat.
+Scroll down to the "Token Generator" section.
 
-To obtain the Refresh Token (key step 🔑); Netatmo uses OAuth2.
+Select scopes: read_thermostat, write_thermostat.
 
-The refresh token allows your server to function without user interaction.
+Click "Generate Token".
 
-🔁 Obtain an authorization code
+Copy the Refresh Token (it is the long string).
 
-In your browser, open this URL (adjusting the client_id):
-
-https://api.netatmo.com/oauth2/authorize?client_id={CLIENT_ID}&redirect_uri=http://localhost&scope=read_thermostat write_thermostat&state=secure_state
-
-👉 You will be redirected to http://localhost/?code=XXXXX
-
-📋 Copy the value code=
-
-🔁 Exchange the code for tokens
-
-Run this command (or via Postman/curl):
-
-curl -X POST https://api.netatmo.com/oauth2/token
-
--d grant_type=authorization_code
-
--d client_id=CLIENT_ID
-
--d client_secret=CLIENT_SECRET
-
--d code=AUTHORIZATION_CODE
-
--d redirect_uri=http://localhost
-
-✅ Expected response:
-
-{ "access_token": "xxx",
-
-"refresh_token": "yyy",
-
-"expires_in": 10800
-
-}
-
-👉 Keep the refresh_token safe
+Note: You can ignore the Access Token as it expires quickly.
 
 🖥️ Step 2: Server Installation (Raspberry Pi)
-This Python script acts as a gateway. It must run continuously.
+This Python script acts as a gateway between your Hub and Netatmo. It must run continuously.
 
-1. Installing the files
+1. Installation
 Create a folder (e.g., netatmo_service) and copy the contents of the /netatmo_service folder from this repository into it.
 
 2. Virtual Environment (Recommended)
+Open a terminal in that folder:
 
-cd netatmo_service
 python3 -m venv venv
 source venv/bin/activate
 pip install -r requirements.txt
-3. Key Configuration
-Rename the .env.example file to .env:
+3. Configuration
+Rename the example file:
 
 mv .env.example .env
 nano .env
-Fill in the following fields with the information retrieved in step 1:
+Fill in the fields with the data from Step 1:
 
 CLIENT_ID=your_client_id_here
-CLIENT_SECRET=your_secret_client_here
+CLIENT_SECRET=your_client_secret_here
 REFRESH_TOKEN=your_refresh_token_here
+(Optional) In app.py:
 
-In app.py:
-The POLL_INTERVAL line sets the refresh interval in seconds (requesting information from Netatmo).
-The STALE_THRESHOLD line sets the timeout before reporting a connection error to the Netatmo servers.
+POLL_INTERVAL: Sets the refresh interval in seconds (default: 300s).
 
-4. Testing Manual
-Start the server to verify:
+STALE_THRESHOLD: Timeout before reporting a connection error.
+
+4. Manual Test
+Start the server to verify everything works:
 
 python3 app.py
-If you see "Running on http://0.0.0.0:5000" and "✅ Auto-update complete", you're good to go! (Stop with Ctrl+C).
+If you see Running on http://0.0.0.0:5000 and ✅ Auto-update complete, you are good to go! (Stop with Ctrl+C).
 
-5. Automatic Startup (Systemd Service)
-To have the bridge start automatically if the Raspberry Pi restarts:
+5. Automatic Startup (Systemd)
+To ensure the bridge starts automatically on boot:
 
-Edit the provided netatmo.service file to adjust the path (if necessary).
+Edit the provided netatmo.service file to match your actual file paths.
 
-Copy and enable it:
+Install the service:
 
 sudo cp netatmo.service /etc/systemd/system/
 sudo systemctl daemon-reload
 sudo systemctl enable netatmo.service
 sudo systemctl start netatmo.service
+📱 Step 3: SmartThings Driver Installation
+0. Prerequisites (SmartThings CLI)
+You need the SmartThings CLI installed on your computer.
 
-📱 Step 3: Installing the SmartThings Driver
-This is the software that installs on your SmartThings Hub. To install it, we need to create a private "Distribution Channel".
+Open your terminal/command prompt.
 
-Account Login
-Open your terminal (Command Prompt or PowerShell) and type:
+Login to your account:
 
 smartthings login
-The terminal will ask you to open a web page (or will open one automatically).
+(Authorize via the browser window that opens).
 
-Log in with your Samsung account (the one used on your mobile app).
-
-Click "Authorize".
-
-Once the message "You can close this window" appears, return to your terminal.
-
-3. Verification
-To ensure the connection is established, type:
+Verify connection:
 
 smartthings devices
-If you see a list of your current devices (even empty), congratulations! You are logged in and ready to install the driver.
-
-1. IP Configuration
+1. Driver Configuration
 Open the file driver/src/init.lua. Modify the following line with your Raspberry Pi's IP address:
 
-local PI_IP = "192.168.1.XX" -- <--- Enter your local IP address here
-You can also change the local POLLING_INTERVAL = 300 to change in seconds the time the hub will ping the rasberry pi to take information.
+local PI_IP = "192.168.1.XX" -- <--- Enter your Raspberry Pi IP address here
+(You can also modify POLLING_INTERVAL here to change how often the Hub checks the Pi).
 
-2. Installation via CLI (Command Line)
-Open a terminal CMD in the ST-Netatmo/ folder (where the config.yaml file is located).
+2. Installation via CLI
+Open a terminal in the driver/ folder (where config.yaml is located).
 
-A. Create Your Personal Channel
-If you have never developed a driver before, create a channel:
+A. Create a Channel
 
 smartthings edge:channels:create
-Give it a name (e.g., My Netatmo Channel).
+Name it (e.g., My Netatmo Channel).
 
-Note the channel ID that is displayed (e.g., 5985...).
+Copy the Channel ID displayed (e.g., 5985...).
 
-B. Enroll Your Hub in the Channel
-You need to allow your Hub to download from this channel:
+B. Enroll your Hub
 
 smartthings edge:channels:enroll
-Select your Hub from the list.
+Select your Hub.
 
-Select the channel you just created.
+Select the Channel you just created.
 
 C. Package the Driver
-This compiles the code and prepares the driver.
 
-smartthings edge:drivers:package
-Note the Driver ID that is displayed (e.g., aafd...).
+smartthings edge:drivers:package .
+Copy the Driver ID displayed (e.g., aafd...).
 
-D. Assign the Driver to the Channel
-We put the package in the delivery truck:
+D. Assign Driver to Channel
+
 smartthings edge:channels:assign
+Select the Driver ID.
 
-E. Install the Driver on the Hub
-The package is delivered:
+Select the Channel ID.
+
+E. Install Driver on Hub
 
 smartthings edge:drivers:install
 Select the Driver.
 
 Select the Hub.
 
-3. Discovery
+3. Device Discovery
 Open the SmartThings app on your phone.
 
-Go to the Devices tab > + (Add) > Scan.
+Go to Devices > + (Add) > Scan.
 
-The Netatmo Bridge will appear.
+The Netatmo Bridge device will appear.
 
-Exit the scan, and return to Scan to add your thermostatic radiator valves.
-
-A few seconds later, your rooms (thermostats) will appear automatically.
+Wait a few seconds... Your rooms (thermostats/valves) will be created automatically.
 
 🩺 Troubleshooting & Indicators
-The "Netatmo Bridge" module has two diagnostic LEDs:
+The "Netatmo Bridge" device features two diagnostic indicators (Contact Sensors):
 
-Hub ↔ Raspberry Pi Connection:
+Hub ↔ Raspberry Pi:
 
-✅ Closed: The Hub is communicating correctly with the Python script.
+✅ Closed: The Hub allows communication with the Python script.
 
-❌ Open (Alert): The Hub cannot find the Raspberry Pi (Check the IP address or if the script is running).
+❌ Open (Alert): The Hub cannot reach the Pi (Check IP address, or if app.py is running).
 
-Pi ↔ Netatmo Connection:
+Pi ↔ Netatmo:
 
-✅ Closed: The script is successfully communicating with the Netatmo servers.
+✅ Closed: The script is successfully communicating with Netatmo Cloud.
 
-❌ Open (Alert): API error or internet outage on the Raspberry Pi.
+❌ Open (Alert): API error or Internet outage on the Raspberry Pi side.
 
-The Back to Schedule button allows you to reset all parts according to the predefined schedule (removing manual boosts).
-
+Disclaimer: This is a personal project not affiliated with Netatmo or Samsung SmartThings. Use at your own risk.
