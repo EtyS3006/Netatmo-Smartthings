@@ -143,8 +143,10 @@ This is the software that installs on your SmartThings Hub. To install it, we ne
 Open the file driver/src/init.lua. Modify the following line with your Raspberry Pi's IP address:
 
 local PI_IP = "192.168.1.XX" -- <--- Enter your local IP address here
+You can also change the local POLLING_INTERVAL = 300 to change in seconds the time the hub will ping the rasberry pi to take information.
+
 2. Installation via CLI (Command Line)
-Open a terminal in the driver/ folder (where the config.yaml file is located).
+Open a terminal CMD in the ST-Netatmo/ folder (where the config.yaml file is located).
 
 A. Create Your Personal Channel
 If you have never developed a driver before, create a channel:
@@ -170,3 +172,40 @@ Note the Driver ID that is displayed (e.g., aafd...).
 
 D. Assign the Driver to the Channel
 We put the package in the delivery truck:
+
+E. Install the Driver on the Hub
+The package is delivered:
+
+smartthings edge:drivers:install
+Select the Driver.
+
+Select the Hub.
+
+3. Discovery
+Open the SmartThings app on your phone.
+
+Go to the Devices tab > + (Add) > Scan.
+
+The Netatmo Bridge will appear.
+
+Exit the scan, and return to Scan to add your thermostatic radiator valves.
+
+A few seconds later, your rooms (thermostats) will appear automatically.
+
+🩺 Troubleshooting & Indicators
+The "Netatmo Bridge" module has two diagnostic LEDs:
+
+Hub ↔ Raspberry Pi Connection:
+
+✅ Closed: The Hub is communicating correctly with the Python script.
+
+❌ Open (Alert): The Hub cannot find the Raspberry Pi (Check the IP address or if the script is running).
+
+Pi ↔ Netatmo Connection:
+
+✅ Closed: The script is successfully communicating with the Netatmo servers.
+
+❌ Open (Alert): API error or internet outage on the Raspberry Pi.
+
+The Back to Schedule button allows you to reset all parts according to the predefined schedule (removing manual boosts).
+
