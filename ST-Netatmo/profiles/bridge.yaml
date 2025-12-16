@@ -1,0 +1,29 @@
+name: netatmo-bridge
+components:
+- id: main
+  capabilities:
+  - id: thermostatMode
+    version: 1
+  - id: refresh
+    version: 1
+  - id: healthCheck
+    version: 1
+  categories:
+  - name: Thermostat
+- id: forced_schedule
+  label: "Retour Planning"
+  capabilities:
+  - id: switch
+    version: 1
+# 👇 VOYANT 1 : Connexion Locale
+- id: local_connection
+  label: "Liaison Hub ↔ Raspberry"
+  capabilities:
+  - id: contactSensor
+    version: 1
+# 👇 VOYANT 2 : Connexion Internet
+- id: cloud_connection
+  label: "Liaison Pi ↔ Netatmo"
+  capabilities:
+  - id: contactSensor
+    version: 1

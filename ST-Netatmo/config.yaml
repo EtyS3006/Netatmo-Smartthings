@@ -1,0 +1,8 @@
+name: "Netatmo Bridge-v2"
+packageKey: "netatmo-bridge-v2"
+permissions:
+  discovery: {}
+  lan: {}
+profiles:
+  - netatmo-bridge
+  - netatmo-valve
