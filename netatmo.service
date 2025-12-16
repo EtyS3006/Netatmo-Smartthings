@@ -1,0 +1,24 @@
+[Unit]
+Description=Netatmo Bridge for SmartThings (Flask)
+After=network.target
+
+[Service]
+# L'utilisateur qui lance le script
+User=pi
+Group=pi
+
+# Dossier de travail
+WorkingDirectory=/home/pi/netatmo_service
+
+# Commande de lancement (utilise le Python du venv !)
+ExecStart=/home/pi/netatmo_service/venv/bin/python /home/pi/netatmo_service/app.py
+
+# Redémarrage automatique en cas de crash
+Restart=always
+RestartSec=10
+
+# Logs en temps réel
+Environment=PYTHONUNBUFFERED=1
+
+[Install]
+WantedBy=multi-user.target
