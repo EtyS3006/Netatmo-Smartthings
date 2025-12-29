@@ -4,57 +4,54 @@ from flask import Flask, jsonify, request
 
 from netatmo_auth import get_access_token
 from netatmo_client import get_homes_data, get_home_status, set_thermostat_temperature, set_thermostat_mode
-from state import update_state, get_state, is_data_stale # <-- On importe la nouvelle fonction
+from state import update_state, get_state, is_data_stale
 
 app = Flask(__name__)
 
 POLL_INTERVAL = 300  # 5 minutes
-STALE_THRESHOLD = 600 # 10 minutes (Si pas de maj après 2 cycles, on déclare l'erreur)
+STALE_THRESHOLD = 600 # 10 minutes
+
+_forced_mode = None
+_forced_mode_time = 0
 
 def perform_update():
-    """Récupère Topologie + Status et fusionne le tout"""
+    global _forced_mode, _forced_mode_time
     try:
         token = get_access_token()
 
-        # 1. Récupération de la STRUCTURE
+        # 1. Structure (Topology) - C'EST ICI QUE SE TROUVE LE MODE !
         topo_raw = get_homes_data(token)
         topo_body = topo_raw.get('body', topo_raw)
-
         if not topo_body or 'homes' not in topo_body:
-            print("⚠️ Pas de données 'homes' dans homesdata")
+            print("⚠️ Pas de données 'homes'")
             return False
 
         home_topo = topo_body['homes'][0]
         home_id = home_topo['id']
         home_name = home_topo.get('name', 'Maison')
 
-        # 2. Récupération des VALEURS
+        # 2. Status (Températures)
         status_raw = get_home_status(token, home_id)
         status_body = status_raw.get('body', status_raw)
-
         if not status_body or 'home' not in status_body:
-             print("⚠️ Pas de données dans homestatus")
+             print("⚠️ Pas de données homestatus")
              return False
 
         home_status = status_body['home']
 
-        # 3. Mapping
+        # 3. Mapping Pièces
         rooms_status_map = {}
         for r in home_status.get('rooms', []):
             rooms_status_map[r['id']] = r
 
-        # 4. Fusion
+        # 4. Fusion Pièces
         final_rooms = []
-        print("\n--- 🕵️ VERITÉ VENUE DE NETATMO (FUSION) ---")
-
         for room_topo in home_topo.get('rooms', []):
             r_id = room_topo['id']
             r_name = room_topo['name']
             r_status = rooms_status_map.get(r_id, {})
             temp_cur = r_status.get('therm_measured_temperature')
             temp_set = r_status.get('therm_setpoint_temperature')
-
-            print(f" > Pièce {r_name} ({r_id}) : Mesure={temp_cur}°C / Consigne={temp_set}°C")
 
             room_clean = {
                 "id": r_id,
@@ -64,17 +61,37 @@ def perform_update():
             }
             final_rooms.append(room_clean)
 
-        # Mode Global
-        global_mode = "schedule"
-        for mod in home_status.get('modules', []):
-            if 'therm_setpoint_mode' in mod:
-                global_mode = mod['therm_setpoint_mode']
-                break
+        # 5. DÉTECTION DU MODE
+        # 🔧 CORRECTION V15 : On regarde dans home_topo (TOPOLOGY) et pas home_status
+        netatmo_mode = home_topo.get('therm_mode') 
+        
+        if not netatmo_mode: 
+            netatmo_mode = home_topo.get('mode')
+        
+        if not netatmo_mode:
+            # Fallback modules (au cas où)
+            for mod in home_status.get('modules', []):
+                if 'therm_setpoint_mode' in mod:
+                    netatmo_mode = mod['therm_setpoint_mode']
+                    break
+        
+        if not netatmo_mode: netatmo_mode = "schedule"
 
-        print(f" > Mode Global Maison : {global_mode}")
-        print("------------------------------------------\n")
+        print(f" > 📡 Mode lu chez Netatmo : {netatmo_mode}")
 
-        # 5. Mise à jour de l'état global
+        # Gestion du mode optimiste (Latence API)
+        final_mode = netatmo_mode
+        if _forced_mode and (time.time() - _forced_mode_time < 60):
+            print(f" > 🚀 Application du mode forcé (Latence) : {_forced_mode}")
+            final_mode = _forced_mode
+            if netatmo_mode == _forced_mode:
+                _forced_mode = None
+        else:
+            _forced_mode = None 
+
+        print(f" > ✅ Mode Final retenu : {final_mode}")
+
+        # 6. Mise à jour État
         final_state = {
             "updated_at": int(time.time()),
             "homes": [{
@@ -82,50 +99,54 @@ def perform_update():
                 "name": home_name,
                 "thermostat": {
                     "id": home_id,
-                    "mode": global_mode
+                    "mode": final_mode
                 },
                 "rooms": final_rooms
             }]
         }
 
-        update_state(final_state) # <-- Ceci mettra à jour le timestamp dans state.py
+        update_state(final_state)
         return True
 
     except Exception as e:
         print(f"❌ Update error: {e}")
-        # On ne propage pas l'erreur ici pour ne pas crasher le thread de polling
-        # Mais le timestamp dans state.py ne sera pas mis à jour
         return False
 
 def polling_loop():
     while True:
         print("🔄 Auto-refreshing Netatmo data...")
         if perform_update():
-            print("✅ Auto-update complete")
-        else:
-            print("❌ Auto-update failed (Retrying in 5 min)")
+            pass 
         time.sleep(POLL_INTERVAL)
 
 @app.route("/netatmo/state")
 def netatmo_state():
-    # C'EST ICI QUE TOUT SE JOUE 🧠
-    # On vérifie si les données sont périmées (> 10 minutes)
     if is_data_stale(STALE_THRESHOLD):
-        print("⚠️ Demande SmartThings : Données périmées -> Envoi erreur 502")
-        # On renvoie 502 pour dire au Hub : "Je suis là, mais je n'arrive pas à joindre Netatmo"
-        return jsonify({"error": "Data is stale (Netatmo unreachable)"}), 502
-    
+        return jsonify({"error": "Data stale"}), 502
     return jsonify(get_state())
+
+@app.route("/netatmo/debug")
+def debug_raw():
+    try:
+        print("🕵️‍♂️ DEBUG RAW demandé")
+        token = get_access_token()
+        topo = get_homes_data(token)
+        home_id = topo.get('body', {}).get('homes', [{}])[0].get('id')
+        status = {}
+        if home_id:
+            status = get_home_status(token, home_id)
+        return jsonify({
+            "1_TOPOLOGY_RAW": topo,
+            "2_STATUS_RAW": status
+        })
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 @app.route("/netatmo/refresh", methods=['POST', 'GET'])
 def force_refresh():
-    print("⚡ Manual Refresh requested by SmartThings...")
-    if perform_update():
-        print("✅ Manual update complete")
-        return jsonify(get_state())
-    else:
-        # Si le refresh manuel échoue, on renvoie aussi une erreur 502
-        return jsonify({"error": "Failed to refresh"}), 502
+    print("⚡ Refresh manuel...")
+    perform_update() 
+    return jsonify(get_state())
 
 @app.route("/netatmo/set_temp", methods=['POST'])
 def set_temp():
@@ -134,27 +155,30 @@ def set_temp():
         home_id = content.get('home_id')
         room_id = content.get('room_id')
         temp = content.get('temp')
-        print(f"🎮 Set Temp: {temp}°C pour Room {room_id}")
+        print(f"🎮 Set Temp: {temp}°C")
         token = get_access_token()
-        result = set_thermostat_temperature(token, home_id, room_id, temp)
-        # On force une mise à jour immédiate du cache pour que l'appli voit le changement
-        perform_update() 
-        return jsonify({"status": "ok", "netatmo": result})
+        res = set_thermostat_temperature(token, home_id, room_id, temp)
+        time.sleep(1)
+        threading.Thread(target=perform_update).start()
+        return jsonify({"status": "ok", "netatmo": res})
     except Exception as e:
         print(f"❌ Erreur Set Temp: {e}")
         return jsonify({"error": str(e)}), 500
 
 @app.route("/netatmo/set_mode", methods=['POST'])
 def set_mode():
+    global _forced_mode, _forced_mode_time
     try:
         content = request.json
         home_id = content.get('home_id')
         mode = content.get('mode')
         print(f"🎮 Set Mode: {mode}")
         token = get_access_token()
-        result = set_thermostat_mode(token, home_id, mode)
-        perform_update()
-        return jsonify({"status": "ok", "netatmo": result})
+        res = set_thermostat_mode(token, home_id, mode)
+        _forced_mode = mode
+        _forced_mode_time = time.time()
+        threading.Thread(target=perform_update).start()
+        return jsonify({"status": "ok", "netatmo": res})
     except Exception as e:
         print(f"❌ Erreur Set Mode: {e}")
         return jsonify({"error": str(e)}), 500
